@@ -1,3 +1,4 @@
+/* eslint-env node */
 'use strict';
 
 var fs = require('fs');
@@ -19,30 +20,30 @@ var vertical = fs.readFileSync(verticalPath, 'utf8');
  * removing Motion, Looks, Sound, Sensing, Data, Operators, Procedures, or extensions.
  */
 var merged = [
-    '// Dry Eggs: full Scratch catalogue with horizontal overrides.\n',
-    vertical,
-    '\n// Dry Eggs: historical horizontal-specific overrides.\n',
-    horizontal,
-    '\n'
+  '// Dry Eggs: full Scratch catalogue with horizontal overrides.\n',
+  vertical,
+  '\n// Dry Eggs: historical horizontal-specific overrides.\n',
+  horizontal,
+  '\n'
 ].join('');
 
 fs.writeFileSync(horizontalPath, merged);
 
 var requiredBlocks = [
-    'motion_movesteps',
-    'looks_costume',
-    'sound_sounds_menu',
-    'sensing_of_object_menu',
-    'operator_add',
-    'data_variable',
-    'procedures_call'
+  'motion_movesteps',
+  'looks_costume',
+  'sound_sounds_menu',
+  'sensing_of_object_menu',
+  'operator_add',
+  'data_variable',
+  'procedures_call'
 ];
 
 for (var i = 0; i < requiredBlocks.length; i++) {
-    var blockName = requiredBlocks[i];
-    if (merged.indexOf('Blockly.Blocks.' + blockName) === -1) {
-        throw new Error('Horizontal catalogue is missing required block: ' + blockName);
-    }
+  var blockName = requiredBlocks[i];
+  if (merged.indexOf('Blockly.Blocks.' + blockName) === -1) {
+    throw new Error('Horizontal catalogue is missing required block: ' + blockName);
+  }
 }
 
 console.log('Dry Eggs horizontal catalogue now includes the full Scratch block set.');
