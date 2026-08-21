@@ -1,0 +1,65 @@
+name: Publish develop builds
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: scratch-blocks-develop-builds
+  cancel-in-progress: true
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build distributable blocks
+        run: npm run prepublish
+
+      - name: Verify generated runtime files
+        run: |
+          test -f blockly_compressed_vertical.js
+          test -f blocks_compressed_vertical.js
+          test -f dist/vertical.js
+          test -f dist/web/vertical.js
+
+      - name: Publish develop-builds branch
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -C develop-builds
+          git add -f \
+            blockly_compressed_horizontal.js \
+            blockly_compressed_vertical.js \
+            blockly_uncompressed_horizontal.js \
+            blockly_uncompressed_vertical.js \
+            blocks_compressed.js \
+            blocks_compressed_horizontal.js \
+            blocks_compressed_vertical.js \
+            dist
+          if git diff --cached --quiet; then
+            echo "Generated output already matches source ${SOURCE_SHA}."
+          else
+            git commit -m "Build ${SOURCE_SHA}"
+          fi
+          git push --force origin develop-builds
