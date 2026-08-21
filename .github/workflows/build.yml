@@ -18,3 +18,28 @@ jobs:
         cache: npm
     - run: npm ci
     - run: npm run test:lint
+    - name: Build distributable blocks
+      run: npm run prepublish
+    - name: Smoke-test complete horizontal catalogue
+      run: |
+        node <<'NODE'
+        const ScratchBlocks = require('./dist/horizontal.js');
+        const required = [
+          'motion_movesteps',
+          'looks_costume',
+          'sound_sounds_menu',
+          'sensing_of_object_menu',
+          'operator_add',
+          'data_variable',
+          'procedures_call'
+        ];
+        for (const name of required) {
+          if (!ScratchBlocks.Blocks || !ScratchBlocks.Blocks[name]) {
+            throw new Error(`Horizontal build is missing ${name}`);
+          }
+        }
+        if (!ScratchBlocks.HorizontalFlyout) {
+          throw new Error('HorizontalFlyout is missing from the horizontal build');
+        }
+        console.log('Horizontal Dry Eggs block engine smoke test passed.');
+        NODE
