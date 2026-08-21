@@ -43,6 +43,10 @@ jobs:
         if (!core.includes('HorizontalFlyout')) {
           throw new Error('HorizontalFlyout is missing from horizontal Blockly core');
         }
+        const horizontalShim = fs.readFileSync('shim/blocks_compressed_horizontal.js', 'utf8');
+        if (!horizontalShim.includes('goog=./shim/blockly_compressed_horizontal.goog')) {
+          throw new Error('Horizontal blocks shim is not injecting Closure goog helpers');
+        }
         for (const output of ['dist/horizontal.js', 'shim/horizontal.js']) {
           if (!fs.existsSync(output)) {
             throw new Error(`Horizontal distribution file is missing: ${output}`);
