@@ -1,12 +1,12 @@
 'use strict';
 
-const fs = require('fs');
+var fs = require('fs');
 
-const horizontalPath = 'blocks_compressed_horizontal.js';
-const verticalPath = 'blocks_compressed_vertical.js';
+var horizontalPath = 'blocks_compressed_horizontal.js';
+var verticalPath = 'blocks_compressed_vertical.js';
 
-const horizontal = fs.readFileSync(horizontalPath, 'utf8');
-const vertical = fs.readFileSync(verticalPath, 'utf8');
+var horizontal = fs.readFileSync(horizontalPath, 'utf8');
+var vertical = fs.readFileSync(verticalPath, 'utf8');
 
 /*
  * The historical horizontal block set only implements a handful of categories.
@@ -18,7 +18,7 @@ const vertical = fs.readFileSync(verticalPath, 'utf8');
  * definitions naturally override matching Event/Control/etc. blocks without
  * removing Motion, Looks, Sound, Sensing, Data, Operators, Procedures, or extensions.
  */
-const merged = [
+var merged = [
     '// Dry Eggs: full Scratch catalogue with horizontal overrides.\n',
     vertical,
     '\n// Dry Eggs: historical horizontal-specific overrides.\n',
@@ -28,7 +28,7 @@ const merged = [
 
 fs.writeFileSync(horizontalPath, merged);
 
-const requiredBlocks = [
+var requiredBlocks = [
     'motion_movesteps',
     'looks_costume',
     'sound_sounds_menu',
@@ -38,9 +38,10 @@ const requiredBlocks = [
     'procedures_call'
 ];
 
-for (const blockName of requiredBlocks) {
-    if (!merged.includes(`Blockly.Blocks.${blockName}`)) {
-        throw new Error(`Horizontal catalogue is missing required block: ${blockName}`);
+for (var i = 0; i < requiredBlocks.length; i++) {
+    var blockName = requiredBlocks[i];
+    if (merged.indexOf('Blockly.Blocks.' + blockName) === -1) {
+        throw new Error('Horizontal catalogue is missing required block: ' + blockName);
     }
 }
 
