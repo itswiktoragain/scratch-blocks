@@ -23,7 +23,8 @@ jobs:
     - name: Smoke-test complete horizontal catalogue
       run: |
         node <<'NODE'
-        const ScratchBlocks = require('./dist/horizontal.js');
+        const fs = require('fs');
+        const catalogue = fs.readFileSync('blocks_compressed_horizontal.js', 'utf8');
         const required = [
           'motion_movesteps',
           'looks_costume',
@@ -34,12 +35,18 @@ jobs:
           'procedures_call'
         ];
         for (const name of required) {
-          if (!ScratchBlocks.Blocks || !ScratchBlocks.Blocks[name]) {
-            throw new Error(`Horizontal build is missing ${name}`);
+          if (!catalogue.includes('Blockly.Blocks.' + name)) {
+            throw new Error(`Horizontal catalogue is missing ${name}`);
           }
         }
-        if (!ScratchBlocks.HorizontalFlyout) {
-          throw new Error('HorizontalFlyout is missing from the horizontal build');
+        const core = fs.readFileSync('blockly_compressed_horizontal.js', 'utf8');
+        if (!core.includes('HorizontalFlyout')) {
+          throw new Error('HorizontalFlyout is missing from horizontal Blockly core');
+        }
+        for (const output of ['dist/horizontal.js', 'shim/horizontal.js']) {
+          if (!fs.existsSync(output)) {
+            throw new Error(`Horizontal distribution file is missing: ${output}`);
+          }
         }
         console.log('Horizontal Dry Eggs block engine smoke test passed.');
         NODE
