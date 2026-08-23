@@ -5,18 +5,18 @@
  *
  * The original horizontal renderer was designed around icon tiles and a single
  * value shadow. Modern Scratch block definitions contain arbitrary labels,
- * reporters, booleans, and multiple inline inputs. This layer keeps the
- * left-to-right stack connections from the horizontal renderer, but replaces
- * its content measurement and output drawing with a modern inline layout.
+ * reporters, booleans, dropdowns, and multiple inline inputs. This layer keeps
+ * left-to-right stack connections from the horizontal renderer while providing
+ * a modern inline content layout.
  *
  * @param {object} Blockly Loaded Scratch Blocks namespace.
  */
 module.exports = function (Blockly) {
-  if (!Blockly || !Blockly.BlockSvg || Blockly.BlockSvg.__dryEggsHorizontalLayoutV2) {
+  if (!Blockly || !Blockly.BlockSvg || Blockly.BlockSvg.__dryEggsHorizontalLayoutV3) {
     return Blockly;
   }
 
-  Blockly.BlockSvg.__dryEggsHorizontalLayoutV2 = true;
+  Blockly.BlockSvg.__dryEggsHorizontalLayoutV3 = true;
 
   var GRID = Blockly.BlockSvg.GRID_UNIT || 4;
   var GAP = 2 * GRID;
@@ -100,22 +100,24 @@ module.exports = function (Blockly) {
 
       if (input.type === Blockly.NEXT_STATEMENT) {
         if (!metrics.statement) metrics.statement = input;
-        metrics.bayHeight = Blockly.BlockSvg.MIN_BLOCK_Y;
-        metrics.bayWidth = Blockly.BlockSvg.MIN_BLOCK_X;
+        var bayHeight = Blockly.BlockSvg.MIN_BLOCK_Y;
+        var bayWidth = Blockly.BlockSvg.MIN_BLOCK_X;
         if (input.connection && input.connection.targetConnection) {
           var statementBlock = input.connection.targetBlock();
           if (statementBlock) {
             var statementSize = statementBlock.getHeightWidth(true);
-            metrics.bayHeight = Math.max(metrics.bayHeight, statementSize.height || 0);
-            metrics.bayWidth = Math.max(metrics.bayWidth, statementSize.width || 0);
+            bayHeight = Math.max(bayHeight, statementSize.height || 0);
+            bayWidth = Math.max(bayWidth, statementSize.width || 0);
             if (!statementBlock.lastConnectionInStack()) {
               metrics.bayNotchAtRight = false;
             } else {
-              metrics.bayWidth -= Blockly.BlockSvg.NOTCH_WIDTH;
+              bayWidth -= Blockly.BlockSvg.NOTCH_WIDTH;
             }
           }
         }
-        signature.push('s:' + metrics.bayWidth + ':' + metrics.bayHeight);
+        metrics.bayHeight = Math.max(metrics.bayHeight, bayHeight);
+        metrics.bayWidth = Math.max(metrics.bayWidth, bayWidth);
+        signature.push('s:' + bayWidth + ':' + bayHeight);
         continue;
       }
 
@@ -154,7 +156,8 @@ module.exports = function (Blockly) {
     } else {
       metrics.height = Math.max(Blockly.BlockSvg.MIN_BLOCK_Y,
         metrics.contentHeight + (2 * CONTENT_PADDING_Y));
-      metrics.contentStart = BLOCK_PADDING + (this.previousConnection ? Blockly.BlockSvg.NOTCH_WIDTH : 0);
+      metrics.contentStart = BLOCK_PADDING +
+        (this.previousConnection ? Blockly.BlockSvg.NOTCH_WIDTH : 0);
       metrics.width = Math.max(Blockly.BlockSvg.MIN_BLOCK_X,
         metrics.contentWidth + metrics.contentStart + BLOCK_PADDING);
 
@@ -258,12 +261,20 @@ module.exports = function (Blockly) {
       ' H 4 A 4 4 0 0 1 0 ' + (height - 4) + ' V 4 A 4 4 0 0 1 4 0 Z';
   };
 
-  var positionInput = function (block, item, x, centerY, connectionsXY) {
+  var positionInput = function (block, item, x, centerY, blockXY) {
     var input = item.input;
     var connection = input.connection;
-    var connectionX = connectionsXY.x + (block.RTL ? -x : x);
-    var connectionY = connectionsXY.y + centerY;
-    connection.moveTo(connectionX, connectionY);
+    var localX = block.RTL ? -x : x;
+
+    /*
+     * INPUT_VALUE is the superior connection. Give it a stable offset in the
+     * parent block, move that connection to the rendered parent position, then
+     * tighten FROM THE PARENT CONNECTION. Calling tighten_ on the child's output
+     * connection moves the wrong side of the relationship and was the source of
+     * detached/above-parent shadow bubbles in Dry Eggs.
+     */
+    connection.setOffsetInBlock(localX, centerY);
+    connection.moveToOffset(blockXY);
 
     var targetConnection = connection.targetConnection;
     if (input.outlinePath) {
@@ -281,11 +292,11 @@ module.exports = function (Blockly) {
       }
     }
 
-    if (targetConnection) targetConnection.tighten_();
+    if (targetConnection) connection.tighten_();
   };
 
   Blockly.BlockSvg.prototype.renderDraw_ = function (metrics) {
-    var connectionsXY = this.getRelativeToSurfaceXY();
+    var blockXY = this.getRelativeToSurfaceXY();
 
     if (this.outputConnection) {
       this.svgPath_.setAttribute('d', reporterPath(metrics.width, metrics.height, metrics.outputShape));
@@ -294,17 +305,21 @@ module.exports = function (Blockly) {
       } else {
         this.svgPath_.removeAttribute('transform');
       }
-      this.outputConnection.moveTo(connectionsXY.x,
-        connectionsXY.y + (metrics.height / 2));
+
+      var outputX = 0;
+      var outputY = metrics.height / 2;
+      this.outputConnection.setOffsetInBlock(outputX, outputY);
+      this.outputConnection.moveToOffset(blockXY);
       if (this.outputConnection.targetConnection) {
+        /* The superior parent input owns the tightening operation. */
         this.outputConnection.targetConnection.tighten_();
       }
     } else {
       var steps = [];
-      this.renderDrawLeft_(steps, connectionsXY, metrics);
-      this.renderDrawBottom_(steps, connectionsXY, metrics);
-      this.renderDrawRight_(steps, connectionsXY, metrics);
-      this.renderDrawTop_(steps, connectionsXY, metrics);
+      this.renderDrawLeft_(steps, blockXY, metrics);
+      this.renderDrawBottom_(steps, blockXY, metrics);
+      this.renderDrawRight_(steps, blockXY, metrics);
+      this.renderDrawTop_(steps, blockXY, metrics);
       this.svgPath_.setAttribute('d', steps.join(' '));
       if (this.RTL) {
         this.svgPath_.setAttribute('transform', 'scale(-1 1)');
@@ -320,7 +335,7 @@ module.exports = function (Blockly) {
       if (item.kind === 'field') {
         positionField(this, item.field, cursorX, centerY);
       } else if (item.kind === 'input') {
-        positionInput(this, item, cursorX, centerY, connectionsXY);
+        positionInput(this, item, cursorX, centerY, blockXY);
       }
       cursorX += item.width + GAP;
     }
