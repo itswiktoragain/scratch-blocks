@@ -18,9 +18,13 @@ jobs:
         cache: npm
     - run: npm ci
     - run: npm run test:lint
+    - name: Check Dry Eggs horizontal layout syntax
+      run: |
+        node --check shim/dry-eggs-horizontal-layout.js
+        node --check shim/horizontal.js
     - name: Build distributable blocks
       run: npm run prepublish
-    - name: Smoke-test complete horizontal catalogue
+    - name: Smoke-test complete horizontal catalogue and layout
       run: |
         node <<'NODE'
         const fs = require('fs');
@@ -39,18 +43,52 @@ jobs:
             throw new Error(`Horizontal catalogue is missing ${name}`);
           }
         }
+
         const core = fs.readFileSync('blockly_compressed_horizontal.js', 'utf8');
         if (!core.includes('HorizontalFlyout')) {
           throw new Error('HorizontalFlyout is missing from horizontal Blockly core');
         }
+
         const horizontalShim = fs.readFileSync('shim/blocks_compressed_horizontal.js', 'utf8');
         if (!horizontalShim.includes('goog=./shim/blockly_compressed_horizontal.goog')) {
           throw new Error('Horizontal blocks shim is not injecting Closure goog helpers');
         }
+
+        const entryShim = fs.readFileSync('shim/horizontal.js', 'utf8');
+        if (!entryShim.includes("require('./dry-eggs-horizontal-layout')(Blockly)")) {
+          throw new Error('Horizontal entry shim is not loading the Dry Eggs layout layer');
+        }
+
+        const layout = fs.readFileSync('shim/dry-eggs-horizontal-layout.js', 'utf8');
+        for (const token of [
+          'contentItems',
+          'OUTPUT_SHAPE_HEXAGONAL',
+          'OUTPUT_SHAPE_ROUND',
+          'input.connection',
+          'targetConnection.tighten_',
+          "shapes.push('boolean')",
+          "shapes.push('round')"
+        ]) {
+          if (!layout.includes(token)) {
+            throw new Error(`Dry Eggs horizontal layout is missing regression token: ${token}`);
+          }
+        }
+
+        const horizontalEvents = fs.readFileSync('blocks_horizontal/event.js', 'utf8');
+        if (!horizontalEvents.includes('BROADCAST_INPUT')) {
+          throw new Error('Sideways message sender is missing BROADCAST_INPUT');
+        }
+        if (!horizontalEvents.includes('field_number')) {
+          throw new Error('Sideways message receiver is missing its numeric channel field');
+        }
+        if (horizontalEvents.includes('FieldIconMenu')) {
+          throw new Error('Legacy sideways message dropdowns are still present');
+        }
+
         for (const output of ['dist/horizontal.js', 'shim/horizontal.js']) {
           if (!fs.existsSync(output)) {
             throw new Error(`Horizontal distribution file is missing: ${output}`);
           }
         }
-        console.log('Horizontal Dry Eggs block engine smoke test passed.');
+        console.log('Horizontal Dry Eggs block engine layout smoke test passed.');
         NODE
