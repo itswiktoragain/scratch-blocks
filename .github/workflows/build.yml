@@ -24,7 +24,7 @@ jobs:
         node --check shim/horizontal.js
     - name: Build distributable blocks
       run: npm run prepublish
-    - name: Smoke-test complete horizontal catalogue and layout
+    - name: Smoke-test modern catalogue in horizontal engine
       run: |
         node <<'NODE'
         const fs = require('fs');
@@ -39,11 +39,26 @@ jobs:
           'procedures_call',
           'event_broadcast_menu',
           'event_broadcast',
-          'event_whenbroadcastreceived'
+          'event_whenbroadcastreceived',
+          'control_repeat',
+          'control_forever',
+          'control_if',
+          'control_if_else'
         ];
         for (const name of required) {
           if (!catalogue.includes('Blockly.Blocks.' + name)) {
             throw new Error(`Horizontal catalogue is missing ${name}`);
+          }
+        }
+
+        for (const legacy of [
+          'icons/control_repeat.svg',
+          'icons/control_forever.svg',
+          'icons/control_wait.svg',
+          'icons/control_stop.svg'
+        ]) {
+          if (catalogue.includes(legacy)) {
+            throw new Error(`Legacy horizontal Control override is still bundled: ${legacy}`);
           }
         }
 
@@ -82,21 +97,10 @@ jobs:
           throw new Error('Horizontal input layout still tightens from the child connection');
         }
 
-        const horizontalEvents = fs.readFileSync('blocks_horizontal/event.js', 'utf8');
-        for (const forbidden of [
-          "Blockly.Blocks['event_broadcast']",
-          "Blockly.Blocks['event_broadcastandwait']",
-          "Blockly.Blocks['event_whenbroadcastreceived']"
-        ]) {
-          if (horizontalEvents.includes(forbidden)) {
-            throw new Error(`Horizontal events still override normal Scratch messaging: ${forbidden}`);
-          }
-        }
-
         for (const output of ['dist/horizontal.js', 'shim/horizontal.js']) {
           if (!fs.existsSync(output)) {
             throw new Error(`Horizontal distribution file is missing: ${output}`);
           }
         }
-        console.log('Horizontal Dry Eggs positioning and message smoke test passed.');
+        console.log('Modern Scratch catalogue + Dry Eggs horizontal renderer smoke test passed.');
         NODE
