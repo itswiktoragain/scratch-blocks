@@ -36,7 +36,10 @@ jobs:
           'sensing_of_object_menu',
           'operator_add',
           'data_variable',
-          'procedures_call'
+          'procedures_call',
+          'event_broadcast_menu',
+          'event_broadcast',
+          'event_whenbroadcastreceived'
         ];
         for (const name of required) {
           if (!catalogue.includes('Blockly.Blocks.' + name)) {
@@ -61,11 +64,13 @@ jobs:
 
         const layout = fs.readFileSync('shim/dry-eggs-horizontal-layout.js', 'utf8');
         for (const token of [
+          '__dryEggsHorizontalLayoutV3',
           'contentItems',
           'OUTPUT_SHAPE_HEXAGONAL',
           'OUTPUT_SHAPE_ROUND',
-          'input.connection',
-          'targetConnection.tighten_',
+          'connection.setOffsetInBlock(localX, centerY)',
+          'connection.moveToOffset(blockXY)',
+          'if (targetConnection) connection.tighten_();',
           "shapes.push('boolean')",
           "shapes.push('round')"
         ]) {
@@ -73,16 +78,19 @@ jobs:
             throw new Error(`Dry Eggs horizontal layout is missing regression token: ${token}`);
           }
         }
+        if (layout.includes('if (targetConnection) targetConnection.tighten_();')) {
+          throw new Error('Horizontal input layout still tightens from the child connection');
+        }
 
         const horizontalEvents = fs.readFileSync('blocks_horizontal/event.js', 'utf8');
-        if (!horizontalEvents.includes('BROADCAST_INPUT')) {
-          throw new Error('Sideways message sender is missing BROADCAST_INPUT');
-        }
-        if (!horizontalEvents.includes('field_number')) {
-          throw new Error('Sideways message receiver is missing its numeric channel field');
-        }
-        if (horizontalEvents.includes('FieldIconMenu')) {
-          throw new Error('Legacy sideways message dropdowns are still present');
+        for (const forbidden of [
+          "Blockly.Blocks['event_broadcast']",
+          "Blockly.Blocks['event_broadcastandwait']",
+          "Blockly.Blocks['event_whenbroadcastreceived']"
+        ]) {
+          if (horizontalEvents.includes(forbidden)) {
+            throw new Error(`Horizontal events still override normal Scratch messaging: ${forbidden}`);
+          }
         }
 
         for (const output of ['dist/horizontal.js', 'shim/horizontal.js']) {
@@ -90,5 +98,5 @@ jobs:
             throw new Error(`Horizontal distribution file is missing: ${output}`);
           }
         }
-        console.log('Horizontal Dry Eggs block engine layout smoke test passed.');
+        console.log('Horizontal Dry Eggs positioning and message smoke test passed.');
         NODE
